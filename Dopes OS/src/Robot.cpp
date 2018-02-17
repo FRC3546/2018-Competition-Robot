@@ -7,7 +7,7 @@
 
 // TEAM 3546 - Buc'N'Gears
 // (D)esign (O)riented (P)rogramming (E)nthusiast(S) (O)perating (S)ystem -> DOPES OS
-// Version 1.0
+// Version 1.01
 
 #include <iostream>
 #include <string>
@@ -23,19 +23,21 @@
 
 class Robot : public frc::IterativeRobot {
 
+private:
 	// --------------------------------------------------------------------------------
 	// PWM CHANNELS FOR DRIVETRAIN MOTORS
-	const static int frontLeftChannel = 0;
-	const static int rearLeftChannel = 1;
-	const static int frontRightChannel = 2;
-	const static int rearRightChannel = 3;
+	const static int frontLeftMotorPWMChannel = 0;
+	const static int rearLeftMotorPWMChannel = 1;
+	const static int frontRightMotorPWMChannel = 2;
+	const static int rearRightMotorPWMChannel = 3;
 	// --------------------------------------------------------------------------------
 	// JOYSTICK DEFINITIONS
 
 	// Driver
 	const static int joystickDriverUSBport = 0;
 	const static int joystickDriver_Rotate_Axis = 2;		// for Mecanum Drive Rotation
-	const static int zeroFieldAngleButton = 1;
+	const double  rotationScalingFactor = 0.7;				// scaling factor for rotation axis
+	const static int zeroFieldAngleButton = 8;
 	const static int rotateToFieldZeroButton = 2;
 	const static int rotateToField90Button = 3;
 	const static int rotateToField180Button = 4;
@@ -45,7 +47,7 @@ class Robot : public frc::IterativeRobot {
 	const static int joystickCoDriverUSBport = 1;
 	const static int releasePowerCubeButton = 3;
 	const static int intakePowerCubeButton = 1;
-	const static int gripperUpDownToggleButton = 8;
+	const static int gripperDownButton = 8;
 	const static int gripperOpenButton = 2;
 	const static int flipperEjectPowerCubeButton = 12;
 	const static int platformRelease1Button = 5;
@@ -98,15 +100,130 @@ class Robot : public frc::IterativeRobot {
 	Solenoid *solenoidPlatformRelease;
 	Solenoid *solenoidPlatformExtend;
 
+	// CREATING SENDABLE CHOOSER FOR AUTONOMOUS
+	std::unique_ptr<frc::Command> autonomousCommand;
+	frc::SendableChooser<frc::Command*> chooser;
+
+	std::string gameData;
+	int alliance;
+	int location;
+
 	// --------------------------------------------------------------------------------
+
 public:
+
+	// --------------------------------------------------------------------------------
+	// GRIPPER MOTORS
+	// --------------------------------------------------------------------------------
+	void ReleasePowerCubeMotors(double motorSpeed)
+	{
+		gripperLeft->Set(-motorSpeed);
+		gripperRight->Set(motorSpeed);
+	}
+
+	void IntakePowerCubeMotors(double motorSpeed)
+	{
+		gripperLeft->Set(motorSpeed);
+		gripperRight->Set(-motorSpeed);
+	}
+
+	void StopPowerCubeMotors(void)
+	{
+		gripperLeft->Set(0);
+		gripperRight->Set(0);
+	}
+
+	// --------------------------------------------------------------------------------
+	// GRIPPER UP-DOWN POSITION
+	// --------------------------------------------------------------------------------
+	void LowerGripper(void)
+	{
+		solenoidGR_UD->Set(DoubleSolenoid::Value::kReverse);
+	}
+
+	void RaiseGripper(void)
+	{
+		solenoidGR_UD->Set(DoubleSolenoid::Value::kForward);
+	}
+
+	// --------------------------------------------------------------------------------
+	// GRIPPER OPEN-CLOSE POSITION
+	// --------------------------------------------------------------------------------
+
+	void CloseGripper(void)
+	{
+		solenoidGR_OC->Set(DoubleSolenoid::Value::kForward);
+	}
+
+	void OpenGripper(void)
+	{
+		solenoidGR_OC->Set(DoubleSolenoid::Value::kReverse);
+	}
+
+	// --------------------------------------------------------------------------------
+	// FLIPPER OPEN-CLOSE POSITION
+	// --------------------------------------------------------------------------------
+	void FlipperOpen(void)
+	{
+		solenoidFL_ER->Set(DoubleSolenoid::Value::kForward);
+	}
+
+	void FlipperClose(void)
+	{
+		solenoidFL_ER->Set(DoubleSolenoid::Value::kReverse);
+	}
+
+	// --------------------------------------------------------------------------------
+	// PLATFORM RELEASE
+	// --------------------------------------------------------------------------------
+	void ReleasePlatform(double DelayInSeconds)
+	{
+		Wait(DelayInSeconds); // delay to ensure we really want the platform to be released
+
+		bool platformRelease1 = joystickCoDriver->GetRawButton(platformRelease1Button);	// recheck button press
+		bool platformRelease2 = joystickCoDriver->GetRawButton(platformRelease2Button);	// recheck button press
+
+		// if both buttons are still pressed, then release platform
+		if (platformRelease1 && platformRelease2)
+		{
+			solenoidPlatformRelease->Set(true);	// release platform
+		}
+	}
+	// --------------------------------------------------------------------------------
+	// PLATFORM EXTEND
+	// --------------------------------------------------------------------------------
+	void ExtendPlatform()
+	{
+		solenoidPlatformExtend->Set(true);	// extend platform
+	}
+	// --------------------------------------------------------------------------------
+	// AUTONOMOUS COMMANDS
+	// --------------------------------------------------------------------------------
+
+	void DoNothing(void){};
+
+	void Drive(double foreaft, double side2side, double time2drive)
+	{
+		robotDrive->MecanumDrive_Cartesian(side2side, foreaft, 0, ahrs->GetAngle());
+		Wait(time2drive);
+		//robotDrive->StopMotor();
+		// or
+		robotDrive->MecanumDrive_Cartesian(0, 0, 0, 0);
+	}
+
+
 	void RobotInit() {
-		m_chooser.AddDefault(kAutoNameDefault, kAutoNameDefault);
-		m_chooser.AddObject(kAutoNameCustom, kAutoNameCustom);
+
+		m_chooser.AddDefault("Do Nothing","Do Nothing");
+		m_chooser.AddObject("Drive Fwd Only", "Drive Fwd Only");
+		m_chooser.AddObject("Robot Time","Robot Time");
 		frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
 
 		// Define Robot Drivetrain
-		robotDrive = new frc::RobotDrive(frontLeftChannel, rearLeftChannel, frontRightChannel, rearRightChannel);     // initialize variables in
+		robotDrive = new frc::RobotDrive(frontLeftMotorPWMChannel,
+				                         rearLeftMotorPWMChannel,
+										 frontRightMotorPWMChannel,
+										 rearRightMotorPWMChannel);
 		robotDrive->SetExpiration(0.1);
 
 		// Invert Motors on the Robot's RIGHT side
@@ -135,6 +252,12 @@ public:
 		solenoidFL_ER = new DoubleSolenoid(solenoidFlipperPCM, solenoidFlipperFwdChannel, solenoidFlipperRvsChannel);
 		solenoidPlatformRelease = new Solenoid(solenoidPlatformReleasePCM, solenoidPlatformReleaseChannel);
 		solenoidPlatformExtend = new Solenoid(solenoidPlatformExtendPCM, solenoidPlatformExtendChannel);
+
+		// Set Initial States of Mechanisms
+		StopPowerCubeMotors();
+		RaiseGripper();
+		CloseGripper();
+		FlipperClose();
 	}
 
 	/*
@@ -152,6 +275,7 @@ public:
 	 * well.
 	 */
 	void AutonomousInit() override {
+
 		m_autoSelected = m_chooser.GetSelected();
 		// m_autoSelected = SmartDashboard::GetString(
 		// 		"Auto Selector", kAutoNameDefault);
@@ -162,13 +286,43 @@ public:
 		} else {
 			// Default Auto goes here
 		}
+
+		// GET DATA TO SELECT AUTONOMOUS
+		//alliance = frc::DriverStation::GetInstance().GetAlliance();				// either kRed or kBlue
+		location = alliance = frc::DriverStation::GetInstance().GetLocation();	// 1 (left), 2 (middle), 3 (right)
+		gameData = frc::DriverStation::GetInstance().GetGameSpecificMessage();	// randomized switch & scale colors
+
 	}
 
 	void AutonomousPeriodic() {
-		if (m_autoSelected == kAutoNameCustom) {
-			// Custom Auto goes here
-		} else {
-			// Default Auto goes here
+
+		if (m_autoSelected == "Do Nothing")
+		{
+			//DoNothing();
+			while(IsAutonomous());
+		}
+		else if (m_autoSelected == "Drive Fwd Only")
+		{
+			Drive(-0.5, 0, 1);	// tune these values so that we will always cross the line
+			while(IsAutonomous());
+		}
+		else if (m_autoSelected == "Robot Time")
+		{
+			//-------------------------------------------------------------------------------------------
+			// IF STARTING POSITION NOT IN THE MIDDLE
+			if (location == 1 || location == 3)
+			{
+				Drive(-0.5, 0, 1);	// tune these values so that we will always cross the line
+
+				if (location == 1 && gameData[0] == 'L')
+					ReleasePowerCubeMotors(0.75);
+
+				if (location == 3 && gameData[0] == 'R')
+					ReleasePowerCubeMotors(0.75);
+
+				while(IsAutonomous());	// wait here until autonomous period ends
+			}
+			//-------------------------------------------------------------------------------------------
 		}
 	}
 
@@ -183,7 +337,7 @@ public:
 			//Drive robot with Driver's joystick input
 			robotDrive->MecanumDrive_Cartesian(joystickDriver->GetX(),
 											   joystickDriver->GetY(),
-											   joystickDriver->GetRawAxis(joystickDriver_Rotate_Axis)*0.7,
+											   joystickDriver->GetRawAxis(joystickDriver_Rotate_Axis)*rotationScalingFactor,
 											   ahrs->GetAngle());
 
 			// --------------------------------------------------------------------------------
@@ -201,35 +355,27 @@ public:
 
 			if (pressRelease && !pressIntake)		// Release Power Cube
 			{
-				gripperLeft->Set(-0.65);
-				gripperRight->Set(0.65);
+				ReleasePowerCubeMotors(0.75);
 			}
 			else if (!pressRelease && pressIntake)	// Intake Power Cube
 			{
-				gripperLeft->Set(0.4);
-				gripperRight->Set(-0.4);
+				IntakePowerCubeMotors(0.3);
 			}
 			else									// ... or else, Stop Motors
 			{
-				gripperLeft->Set(0);
-				gripperRight->Set(0);
+				StopPowerCubeMotors();
 			}
 
 			// --------------------------------------------------------------------------------
-			// TOGGLE GRIPPER UP-DOWN WITH CO-DRIVER JOYSTICK BUTTON 8
-			bool gripper_updown = joystickCoDriver->GetRawButton(gripperUpDownToggleButton);
-			if (gripper_updown)
+			// GRIPPER DOWN WHILE HOLDING DOWN CO-DRIVER JOYSTICK BUTTON 8
+			bool gripperDown = joystickCoDriver->GetRawButton(gripperDownButton);
+			if (gripperDown)
 			{
-				if (solenoidGR_UD->Get()== 2)
-				{
-					solenoidGR_UD->Set(DoubleSolenoid::Value::kForward);
-					Wait(1);
-				}
-				else
-				{
-					solenoidGR_UD->Set(DoubleSolenoid::Value::kReverse);
-					Wait(1);
-				}
+				LowerGripper();	// Gripper in down position
+			}
+			else
+			{
+				RaiseGripper();	// Gripper in up position
 			}
 
 			// --------------------------------------------------------------------------------
@@ -237,25 +383,25 @@ public:
 			bool gripperOpen = joystickCoDriver->GetRawButton(gripperOpenButton);
 			if ( gripperOpen )
 			{
-				solenoidGR_OC->Set(DoubleSolenoid::Value::kReverse);
+				OpenGripper();
 			}
 			else
 			{
-				solenoidGR_OC->Set(DoubleSolenoid::Value::kForward);
+				CloseGripper();
 			}
 
 			// --------------------------------------------------------------------------------
-			// EJECT POWER CUBE USING FLIPPER WITH BUTTON 12
+			// EJECT POWER CUBE USING FLIPPER
 			bool flipperEject = joystickCoDriver->GetRawButton(flipperEjectPowerCubeButton);
 			if ( flipperEject )
 			{
-				solenoidGR_OC->Set(DoubleSolenoid::Value::kReverse);
+				OpenGripper();
 				Wait(1);
-				solenoidFL_ER->Set(DoubleSolenoid::Value::kForward);
+				FlipperOpen();
 				Wait(0.5);
-				solenoidFL_ER->Set(DoubleSolenoid::Value::kReverse);
+				FlipperClose();
 				Wait(1);
-				solenoidGR_OC->Set(DoubleSolenoid::Value::kForward);
+				CloseGripper();
 			}
 
 			// --------------------------------------------------------------------------------
@@ -265,7 +411,7 @@ public:
 
 			if (platformRelease1 && platformRelease2)
 			{
-				solenoidPlatformRelease->Set(true);	// release platform
+				ReleasePlatform(2);	// release platform after button is held for 2 seconds
 			}
 
 			// --------------------------------------------------------------------------------
@@ -273,7 +419,7 @@ public:
 			bool platformExtend = joystickCoDriver->GetRawButton(platformExtendButton);
 			if (platformExtend && solenoidPlatformRelease->Get() == false)
 			{
-				solenoidPlatformExtend->Set(true);	// extend platform
+				ExtendPlatform();
 			}
 			// --------------------------------------------------------------------------------
 
