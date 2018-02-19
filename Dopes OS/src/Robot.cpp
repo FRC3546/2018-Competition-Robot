@@ -7,7 +7,7 @@
 
 // TEAM 3546 - Buc'N'Gears
 // (D)esign (O)riented (P)rogramming (E)nthusiast(S) (O)perating (S)ystem -> DOPES OS
-// Version 1.01
+// Version 1.02
 
 #include <iostream>
 #include <string>
@@ -35,15 +35,18 @@ private:
 
 	// Driver
 	const static int joystickDriverUSBport = 0;
-	const static int joystickDriver_Rotate_Axis = 2;		// for Mecanum Drive Rotation
-	const double  rotationScalingFactor = 0.7;				// scaling factor for rotation axis
+	const static int joystickDriver_Rotate_Axis = 2;	// for Mecanum Drive Rotation
+	const double  rotationScalingFactor = 0.6;			// scaling factor for rotation axis
 	const static int zeroFieldAngleButton = 8;
-	const static int rotateToFieldZeroButton = 2;
-	const static int rotateToField90Button = 3;
-	const static int rotateToField180Button = 4;
-	const static int rotateToField270Button = 5;
+	//const static int rotateToFieldZeroButton = 2;
+	//const static int rotateToField90Button = 3;
+	//const static int rotateToField180Button = 4;
+	//const static int rotateToField270Button = 5;
 
 	// CoDriver
+	const static bool gripperToggleMode = false;	// set to true for toggle mode of gripper raise/lower;
+													// set to false for lower gripper while holding button
+
 	const static int joystickCoDriverUSBport = 1;
 	const static int releasePowerCubeButton = 3;
 	const static int intakePowerCubeButton = 1;
@@ -54,27 +57,29 @@ private:
 	const static int platformRelease2Button = 6;
 	const static int platformExtendButton = 7;
 	// --------------------------------------------------------------------------------
+	// MOTOR SPEEDS
+	const static int motorReleasePowerCubeSpeed = 0.75;
+	const static int motorIntakePowerCubeSpeed = 0.3;
+	// --------------------------------------------------------------------------------
 	// PNEUMATICS CONTROL MODULE DEFINITION
 	const static int pcm0 = 0;		// CAN ID for PCM0
-	const static int pcm1 = 1;		// CAN ID for PCM1
 
-	const static int solenoidGripperUpDownPCM = pcm1;
-	const static int solenoidGripperUpDownFwdChannel = 0;
-	const static int solenoidGripperUpDownRvsChannel = 1;
+	const static int solenoidGripperUpDownPCM = pcm0;
+	const static int solenoidGripperUpDownFwdChannel = 0;		// raise gripper
+	const static int solenoidGripperUpDownRvsChannel = 1;		// lower gripper
 
-	const static int solenoidGripperOpenClosePCM = pcm1;
-	const static int solenoidGripperOpenCloseFwdChannel = 2;
-	const static int solenoidGripperOpenCloseRvsChannel = 3;
+	const static int solenoidGripperOpenClosePCM = pcm0;
+	const static int solenoidGripperOpenCloseFwdChannel = 2;	// open gripper
+	const static int solenoidGripperOpenCloseRvsChannel = 3;	// close gripper
 
-	const static int solenoidFlipperPCM = pcm1;
-	const static int solenoidFlipperFwdChannel = 4;
-	const static int solenoidFlipperRvsChannel = 5;
+	const static int solenoidFlipperPCM = pcm0;
+	const static int solenoidFlipperFwdChannel = 4;				// flipper eject motion
+	const static int solenoidFlipperRvsChannel = 5;				// flipper retract motion
 
-	const static int solenoidPlatformReleasePCM = pcm1;
-	const static int solenoidPlatformReleaseChannel = 6;
+	const static int solenoidPlatformPCM = pcm0;
+	const static int solenoidPlatformFwdChannel = 6;			// platform engage
+	const static int solenoidPlatformRvsChannel = 7;			// platform release
 
-	const static int solenoidPlatformExtendPCM = pcm1;
-	const static int solenoidPlatformExtendChannel = 7;
 	// --------------------------------------------------------------------------------
 	// GRIPPER MOTOR DEFINITION
 	const static int gripperleftmotor = 2;		// CAN ID - Talon SRX
@@ -95,10 +100,7 @@ private:
 	DoubleSolenoid *solenoidGR_UD;	// Solenoid Gripper Up-Down motion
 	DoubleSolenoid *solenoidGR_OC;	// Solenoid Gripper Open-Close motion
 	DoubleSolenoid *solenoidFL_ER;	// Solenoid Flipper Extend-Retract
-
-	// SOLENOIDS
-	Solenoid *solenoidPlatformRelease;
-	Solenoid *solenoidPlatformExtend;
+	DoubleSolenoid *solenoidPLT;	// Solenoid Platform Engage-Release
 
 	// CREATING SENDABLE CHOOSER FOR AUTONOMOUS
 	std::unique_ptr<frc::Command> autonomousCommand;
@@ -186,15 +188,15 @@ public:
 		// if both buttons are still pressed, then release platform
 		if (platformRelease1 && platformRelease2)
 		{
-			solenoidPlatformRelease->Set(true);	// release platform
+			solenoidPLT->Set(DoubleSolenoid::Value::kReverse);	// release platform
 		}
 	}
 	// --------------------------------------------------------------------------------
 	// PLATFORM EXTEND
 	// --------------------------------------------------------------------------------
-	void ExtendPlatform()
+	void EngagePlatform()
 	{
-		solenoidPlatformExtend->Set(true);	// extend platform
+		solenoidPLT->Set(DoubleSolenoid::Value::kForward);	// engage platform
 	}
 	// --------------------------------------------------------------------------------
 	// AUTONOMOUS COMMANDS
@@ -250,8 +252,7 @@ public:
 		solenoidGR_UD = new DoubleSolenoid(solenoidGripperUpDownPCM, solenoidGripperUpDownFwdChannel, solenoidGripperUpDownRvsChannel);
 		solenoidGR_OC = new DoubleSolenoid(solenoidGripperOpenClosePCM, solenoidGripperOpenCloseFwdChannel, solenoidGripperOpenCloseRvsChannel);
 		solenoidFL_ER = new DoubleSolenoid(solenoidFlipperPCM, solenoidFlipperFwdChannel, solenoidFlipperRvsChannel);
-		solenoidPlatformRelease = new Solenoid(solenoidPlatformReleasePCM, solenoidPlatformReleaseChannel);
-		solenoidPlatformExtend = new Solenoid(solenoidPlatformExtendPCM, solenoidPlatformExtendChannel);
+		solenoidPLT = new DoubleSolenoid(solenoidPlatformPCM, solenoidPlatformFwdChannel, solenoidPlatformRvsChannel);
 
 		// Set Initial States of Mechanisms
 		StopPowerCubeMotors();
@@ -260,20 +261,6 @@ public:
 		FlipperClose();
 	}
 
-	/*
-	 * This autonomous (along with the chooser code above) shows how to
-	 * select
-	 * between different autonomous modes using the dashboard. The sendable
-	 * chooser code works with the Java SmartDashboard. If you prefer the
-	 * LabVIEW Dashboard, remove all of the chooser code and uncomment the
-	 * GetString line to get the auto name from the text box below the Gyro.
-	 *
-	 * You can add additional auto modes by adding additional comparisons to
-	 * the
-	 * if-else structure below with additional strings. If using the
-	 * SendableChooser make sure to add them to the chooser code above as
-	 * well.
-	 */
 	void AutonomousInit() override {
 
 		m_autoSelected = m_chooser.GetSelected();
@@ -315,10 +302,10 @@ public:
 				Drive(-0.5, 0, 1);	// tune these values so that we will always cross the line
 
 				if (location == 1 && gameData[0] == 'L')
-					ReleasePowerCubeMotors(0.75);
+					ReleasePowerCubeMotors(motorReleasePowerCubeSpeed );
 
 				if (location == 3 && gameData[0] == 'R')
-					ReleasePowerCubeMotors(0.75);
+					ReleasePowerCubeMotors(motorReleasePowerCubeSpeed );
 
 				while(IsAutonomous());	// wait here until autonomous period ends
 			}
@@ -355,29 +342,47 @@ public:
 
 			if (pressRelease && !pressIntake)		// Release Power Cube
 			{
-				ReleasePowerCubeMotors(0.75);
+				ReleasePowerCubeMotors(motorReleasePowerCubeSpeed );
 			}
 			else if (!pressRelease && pressIntake)	// Intake Power Cube
 			{
-				IntakePowerCubeMotors(0.3);
+				IntakePowerCubeMotors(motorIntakePowerCubeSpeed );
 			}
 			else									// ... or else, Stop Motors
 			{
 				StopPowerCubeMotors();
 			}
-
 			// --------------------------------------------------------------------------------
 			// GRIPPER DOWN WHILE HOLDING DOWN CO-DRIVER JOYSTICK BUTTON 8
 			bool gripperDown = joystickCoDriver->GetRawButton(gripperDownButton);
-			if (gripperDown)
+
+			if (!gripperToggleMode)
 			{
-				LowerGripper();	// Gripper in down position
+				if (gripperDown)	// in button press lower mode
+				{
+					LowerGripper();	// Gripper in down position
+				}
+				else
+				{
+					RaiseGripper();	// Gripper in up position
+				}
 			}
 			else
 			{
-				RaiseGripper();	// Gripper in up position
+				if (gripperDown)	// in toggle mode
+				{
+					if (solenoidGR_UD->Get() == 2)
+					{
+						LowerGripper();
+						Wait(1);
+					}
+					else
+					{
+						RaiseGripper();
+						Wait(1);
+					}
+				}
 			}
-
 			// --------------------------------------------------------------------------------
 			// OPEN GRIPPER WHILE HOLDING BUTTON
 			bool gripperOpen = joystickCoDriver->GetRawButton(gripperOpenButton);
@@ -415,15 +420,15 @@ public:
 			}
 
 			// --------------------------------------------------------------------------------
-			// CHECK for PLATFORM EXTEND
-			bool platformExtend = joystickCoDriver->GetRawButton(platformExtendButton);
-			if (platformExtend && solenoidPlatformRelease->Get() == false)
+			// CHECK for PLATFORM Engage
+			bool platformEngage = joystickCoDriver->GetRawButton(platformExtendButton);
+			if (platformEngage)
 			{
-				ExtendPlatform();
+				EngagePlatform();
 			}
 			// --------------------------------------------------------------------------------
 
-			Wait(0.05); // wait 50ms to avoid hogging CPU cycles
+			Wait(0.01); // wait 10ms to avoid hogging CPU cycles
 		}
 	}
 
