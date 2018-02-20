@@ -7,7 +7,7 @@
 
 // TEAM 3546 - Buc'N'Gears
 // (D)esign (O)riented (P)rogramming (E)nthusiast(S) (O)perating (S)ystem -> DOPES OS
-// Version 1.02
+// Version 1.03
 
 #include <iostream>
 #include <string>
@@ -44,7 +44,7 @@ private:
 	//const static int rotateToField270Button = 5;
 
 	// CoDriver
-	const static bool gripperToggleMode = false;	// set to true for toggle mode of gripper raise/lower;
+	const static bool gripperToggleMode = true;	// set to true for toggle mode of gripper raise/lower;
 													// set to false for lower gripper while holding button
 
 	const static int joystickCoDriverUSBport = 1;
@@ -53,13 +53,13 @@ private:
 	const static int gripperDownButton = 8;
 	const static int gripperOpenButton = 2;
 	const static int flipperEjectPowerCubeButton = 12;
-	const static int platformRelease1Button = 5;
-	const static int platformRelease2Button = 6;
+	const static int platformRelease1Button = 9;
+	const static int platformRelease2Button = 10;
 	const static int platformExtendButton = 7;
 	// --------------------------------------------------------------------------------
 	// MOTOR SPEEDS
-	const static int motorReleasePowerCubeSpeed = 0.75;
-	const static int motorIntakePowerCubeSpeed = 0.3;
+	const double motorReleasePowerCubeSpeed = 0.75;
+	const double motorIntakePowerCubeSpeed = 0.3;
 	// --------------------------------------------------------------------------------
 	// PNEUMATICS CONTROL MODULE DEFINITION
 	const static int pcm0 = 0;		// CAN ID for PCM0
@@ -188,6 +188,7 @@ public:
 		// if both buttons are still pressed, then release platform
 		if (platformRelease1 && platformRelease2)
 		{
+			LowerGripper();
 			solenoidPLT->Set(DoubleSolenoid::Value::kReverse);	// release platform
 		}
 	}
@@ -259,6 +260,7 @@ public:
 		RaiseGripper();
 		CloseGripper();
 		FlipperClose();
+		EngagePlatform();
 	}
 
 	void AutonomousInit() override {
@@ -313,7 +315,15 @@ public:
 		}
 	}
 
-	void TeleopInit() {}
+	void TeleopInit()
+	{
+		// Set Initial States of Mechanisms
+		StopPowerCubeMotors();
+		RaiseGripper();
+		CloseGripper();
+		FlipperClose();
+		EngagePlatform();
+	}
 
 	void TeleopPeriodic()
 	{
@@ -373,12 +383,12 @@ public:
 				{
 					if (solenoidGR_UD->Get() == 2)
 					{
-						LowerGripper();
+						RaiseGripper();
 						Wait(1);
 					}
 					else
 					{
-						RaiseGripper();
+						LowerGripper();
 						Wait(1);
 					}
 				}
@@ -417,6 +427,8 @@ public:
 			if (platformRelease1 && platformRelease2)
 			{
 				ReleasePlatform(2);	// release platform after button is held for 2 seconds
+				Wait(5);
+				EngagePlatform();
 			}
 
 			// --------------------------------------------------------------------------------
