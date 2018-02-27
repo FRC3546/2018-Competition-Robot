@@ -7,7 +7,7 @@
 
 // TEAM 3546 - Buc'N'Gears
 // (D)esign (O)riented (P)rogramming (E)nthusiast(S) (O)perating (S)ystem -> DOPES OS
-// Version 1.03
+// Version 1.05
 
 #include <iostream>
 #include <string>
@@ -20,6 +20,7 @@
 #include "Joystick.h"
 #include <LiveWindow/LiveWindow.h>
 #include "ctre/Phoenix.h"
+#include "Timer.h"
 
 class Robot : public frc::IterativeRobot {
 
@@ -44,13 +45,14 @@ private:
 	//const static int rotateToField270Button = 5;
 
 	// CoDriver
-	const static bool gripperToggleMode = true;	// set to true for toggle mode of gripper raise/lower;
+	const static bool gripperToggleMode = false;	// set to true for toggle mode of gripper raise/lower;
 													// set to false for lower gripper while holding button
 
 	const static int joystickCoDriverUSBport = 1;
 	const static int releasePowerCubeButton = 3;
 	const static int intakePowerCubeButton = 1;
-	const static int gripperDownButton = 8;
+	const static int gripperDownButton = 7;
+	const static int gripperUpButton = 8;
 	const static int gripperOpenButton = 2;
 	const static int flipperEjectPowerCubeButton = 12;
 	const static int platformRelease1Button = 9;
@@ -106,9 +108,14 @@ private:
 	std::unique_ptr<frc::Command> autonomousCommand;
 	frc::SendableChooser<frc::Command*> chooser;
 
+	// DATA FROM FIELD MANAGEMENT SYSTEM
 	std::string gameData;
 	int alliance;
 	int location;
+
+	// TIMER
+	Timer *timer;
+	int commandTimeout;
 
 	// --------------------------------------------------------------------------------
 
@@ -255,6 +262,9 @@ public:
 		solenoidFL_ER = new DoubleSolenoid(solenoidFlipperPCM, solenoidFlipperFwdChannel, solenoidFlipperRvsChannel);
 		solenoidPLT = new DoubleSolenoid(solenoidPlatformPCM, solenoidPlatformFwdChannel, solenoidPlatformRvsChannel);
 
+		// Timer
+		timer = new Timer;
+
 		// Set Initial States of Mechanisms
 		StopPowerCubeMotors();
 		RaiseGripper();
@@ -281,6 +291,7 @@ public:
 		location = alliance = frc::DriverStation::GetInstance().GetLocation();	// 1 (left), 2 (middle), 3 (right)
 		gameData = frc::DriverStation::GetInstance().GetGameSpecificMessage();	// randomized switch & scale colors
 
+		ahrs->ZeroYaw();
 	}
 
 	void AutonomousPeriodic() {
@@ -292,8 +303,27 @@ public:
 		}
 		else if (m_autoSelected == "Drive Fwd Only")
 		{
-			Drive(-0.5, 0, 1);	// tune these values so that we will always cross the line
-			while(IsAutonomous());
+			if (location == 1 || location == 3)		// if we're in the sides
+			{
+				Drive(-0.5, 0, 1);	// tune these values so that we will always cross the line
+				while(IsAutonomous());
+			}
+			else	// if we're in the middle
+			{
+				Drive(-0.5, 0, 1);		// drive halfway forward
+
+				if (gameData[0] == 'L')
+				{
+					Drive(0, -0.5, 2);		// drive left
+				}
+				else
+				{
+					Drive(0, 0.5, 2);		// drive right
+				}
+
+				Drive(-0.5, 0, 1);		// drive the rest of the way forward
+				while(IsAutonomous());
+			}
 		}
 		else if (m_autoSelected == "Robot Time")
 		{
@@ -302,6 +332,7 @@ public:
 			if (location == 1 || location == 3)
 			{
 				Drive(-0.5, 0, 1);	// tune these values so that we will always cross the line
+				Wait(2);
 
 				if (location == 1 && gameData[0] == 'L')
 					ReleasePowerCubeMotors(motorReleasePowerCubeSpeed );
@@ -309,7 +340,34 @@ public:
 				if (location == 3 && gameData[0] == 'R')
 					ReleasePowerCubeMotors(motorReleasePowerCubeSpeed );
 
+				Wait(1);
+				StopPowerCubeMotors();
+
 				while(IsAutonomous());	// wait here until autonomous period ends
+			}
+			//-------------------------------------------------------------------------------------------
+			// IF STARTING POSITION IS IN THE MIDDLE
+			else
+			{
+
+
+				if (gameData[0] == 'L')	// go to the left
+				{
+					Drive(-0.5, 0, 0.7);	// tune these values so that we will always cross the line
+					Drive(0, -0.5, 1.75);		// drive left
+				}
+				else		// go to the right
+				{
+					Drive(-0.5, 0, 1);		// tune these values so that we will always cross the line
+					Drive(0, 0.5, 1.3);		// drive right
+				}
+
+				Drive(-0.5, 0, 1.5);		// drive forward to the switch
+				Wait(2);
+				ReleasePowerCubeMotors(motorReleasePowerCubeSpeed);
+				Wait(1);
+				StopPowerCubeMotors();
+				while(IsAutonomous());
 			}
 			//-------------------------------------------------------------------------------------------
 		}
@@ -323,6 +381,8 @@ public:
 		CloseGripper();
 		FlipperClose();
 		EngagePlatform();
+		commandTimeout = 0;
+		ahrs->ZeroYaw();
 	}
 
 	void TeleopPeriodic()
@@ -365,34 +425,17 @@ public:
 			// --------------------------------------------------------------------------------
 			// GRIPPER DOWN WHILE HOLDING DOWN CO-DRIVER JOYSTICK BUTTON 8
 			bool gripperDown = joystickCoDriver->GetRawButton(gripperDownButton);
+			bool gripperUp = joystickCoDriver->GetRawButton(gripperUpButton);
 
-			if (!gripperToggleMode)
+			if (gripperDown && !gripperUp)	// in button press lower mode
 			{
-				if (gripperDown)	// in button press lower mode
-				{
-					LowerGripper();	// Gripper in down position
-				}
-				else
-				{
-					RaiseGripper();	// Gripper in up position
-				}
+				LowerGripper();	// Gripper in down position
 			}
-			else
+			else if (!gripperDown && gripperUp)
 			{
-				if (gripperDown)	// in toggle mode
-				{
-					if (solenoidGR_UD->Get() == 2)
-					{
-						RaiseGripper();
-						Wait(1);
-					}
-					else
-					{
-						LowerGripper();
-						Wait(1);
-					}
-				}
+				RaiseGripper();	// Gripper in up position
 			}
+
 			// --------------------------------------------------------------------------------
 			// OPEN GRIPPER WHILE HOLDING BUTTON
 			bool gripperOpen = joystickCoDriver->GetRawButton(gripperOpenButton);
@@ -404,7 +447,6 @@ public:
 			{
 				CloseGripper();
 			}
-
 			// --------------------------------------------------------------------------------
 			// EJECT POWER CUBE USING FLIPPER
 			bool flipperEject = joystickCoDriver->GetRawButton(flipperEjectPowerCubeButton);
@@ -426,8 +468,8 @@ public:
 
 			if (platformRelease1 && platformRelease2)
 			{
-				ReleasePlatform(2);	// release platform after button is held for 2 seconds
-				Wait(5);
+				ReleasePlatform(0.5);	// release platform after button is held for 2 seconds
+				Wait(3);
 				EngagePlatform();
 			}
 
@@ -440,7 +482,7 @@ public:
 			}
 			// --------------------------------------------------------------------------------
 
-			Wait(0.01); // wait 10ms to avoid hogging CPU cycles
+			Wait(0.001);
 		}
 	}
 
