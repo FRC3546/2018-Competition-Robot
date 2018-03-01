@@ -7,7 +7,7 @@
 
 // TEAM 3546 - Buc'N'Gears
 // (D)esign (O)riented (P)rogramming (E)nthusiast(S) (O)perating (S)ystem -> DOPES OS
-// Version 1.05
+// Version 1.06
 
 #include <iostream>
 #include <string>
@@ -214,13 +214,15 @@ public:
 
 	void Drive(double foreaft, double side2side, double time2drive)
 	{
-		robotDrive->MecanumDrive_Cartesian(side2side, foreaft, 0, ahrs->GetAngle());
-		Wait(time2drive);
-		//robotDrive->StopMotor();
-		// or
+		timer->Reset();
+		timer->Start();
+		while (timer->Get()<time2drive)
+		{
+			robotDrive->MecanumDrive_Cartesian(side2side, foreaft, 0, ahrs->GetAngle());
+		}
 		robotDrive->MecanumDrive_Cartesian(0, 0, 0, 0);
+		timer->Reset();
 	}
-
 
 	void RobotInit() {
 
@@ -305,12 +307,12 @@ public:
 		{
 			if (location == 1 || location == 3)		// if we're in the sides
 			{
-				Drive(-0.5, 0, 1);	// tune these values so that we will always cross the line
+				Drive(-0.5, 0, 0.9);	// tune these values so that we will always cross the line
 				while(IsAutonomous());
 			}
 			else	// if we're in the middle
 			{
-				Drive(-0.5, 0, 1);		// drive halfway forward
+				Drive(-0.5, 0, 0.5);		// drive halfway forward
 
 				if (gameData[0] == 'L')
 				{
@@ -321,7 +323,7 @@ public:
 					Drive(0, 0.5, 2);		// drive right
 				}
 
-				Drive(-0.5, 0, 1);		// drive the rest of the way forward
+				Drive(-0.5, 0, 0.7);		// drive the rest of the way forward
 				while(IsAutonomous());
 			}
 		}
@@ -331,7 +333,7 @@ public:
 			// IF STARTING POSITION NOT IN THE MIDDLE
 			if (location == 1 || location == 3)
 			{
-				Drive(-0.5, 0, 1);	// tune these values so that we will always cross the line
+				Drive(-0.5, 0, 0.9);	// tune these values so that we will always cross the line
 				Wait(2);
 
 				if (location == 1 && gameData[0] == 'L')
@@ -353,16 +355,16 @@ public:
 
 				if (gameData[0] == 'L')	// go to the left
 				{
-					Drive(-0.5, 0, 0.7);	// tune these values so that we will always cross the line
-					Drive(0, -0.5, 1.75);		// drive left
+					Drive(-0.5, 0, 0.5);	// tune these values so that we will always cross the line
+					Drive(0, -0.5, 2);		// drive left
 				}
 				else		// go to the right
 				{
-					Drive(-0.5, 0, 1);		// tune these values so that we will always cross the line
-					Drive(0, 0.5, 1.3);		// drive right
+					Drive(-0.5, 0, 0.5);		// tune these values so that we will always cross the line
+					Drive(0, 0.5, 2);		// drive right
 				}
 
-				Drive(-0.5, 0, 1.5);		// drive forward to the switch
+				Drive(-0.5, 0, 0.7);		// drive forward to the switch
 				Wait(2);
 				ReleasePowerCubeMotors(motorReleasePowerCubeSpeed);
 				Wait(1);
