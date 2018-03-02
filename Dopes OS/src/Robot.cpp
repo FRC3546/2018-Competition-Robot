@@ -7,7 +7,7 @@
 
 // TEAM 3546 - Buc'N'Gears
 // (D)esign (O)riented (P)rogramming (E)nthusiast(S) (O)perating (S)ystem -> DOPES OS
-// Version 1.06
+// Version 1.07
 
 #include <iostream>
 #include <string>
@@ -471,8 +471,8 @@ public:
 			if (platformRelease1 && platformRelease2)
 			{
 				ReleasePlatform(0.5);	// release platform after button is held for 2 seconds
-				Wait(3);
-				EngagePlatform();
+				//Wait(3);
+				//EngagePlatform();
 			}
 
 			// --------------------------------------------------------------------------------
