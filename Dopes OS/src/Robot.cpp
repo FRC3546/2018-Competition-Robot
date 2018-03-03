@@ -7,7 +7,7 @@
 
 // TEAM 3546 - Buc'N'Gears
 // (D)esign (O)riented (P)rogramming (E)nthusiast(S) (O)perating (S)ystem -> DOPES OS
-// Version 1.07
+// Version 1.08
 
 #include <iostream>
 #include <string>
@@ -39,15 +39,8 @@ private:
 	const static int joystickDriver_Rotate_Axis = 2;	// for Mecanum Drive Rotation
 	const double  rotationScalingFactor = 0.6;			// scaling factor for rotation axis
 	const static int zeroFieldAngleButton = 8;
-	//const static int rotateToFieldZeroButton = 2;
-	//const static int rotateToField90Button = 3;
-	//const static int rotateToField180Button = 4;
-	//const static int rotateToField270Button = 5;
 
 	// CoDriver
-	const static bool gripperToggleMode = false;	// set to true for toggle mode of gripper raise/lower;
-													// set to false for lower gripper while holding button
-
 	const static int joystickCoDriverUSBport = 1;
 	const static int releasePowerCubeButton = 3;
 	const static int intakePowerCubeButton = 1;
@@ -62,6 +55,7 @@ private:
 	// MOTOR SPEEDS
 	const double motorReleasePowerCubeSpeed = 0.75;
 	const double motorIntakePowerCubeSpeed = 0.3;
+	const double motorAutonomousSpeed = 0.5;
 	// --------------------------------------------------------------------------------
 	// PNEUMATICS CONTROL MODULE DEFINITION
 	const static int pcm0 = 0;		// CAN ID for PCM0
@@ -227,8 +221,11 @@ public:
 	void RobotInit() {
 
 		m_chooser.AddDefault("Do Nothing","Do Nothing");
-		m_chooser.AddObject("Drive Fwd Only", "Drive Fwd Only");
-		m_chooser.AddObject("Robot Time","Robot Time");
+		m_chooser.AddObject("Drive Fwd - L or R", "Drive Fwd - L or R");
+		m_chooser.AddObject("Drive Fwd - M Only", "Drive Fwd - M only");
+		m_chooser.AddObject("Robot Time - L","Robot Time - L");
+		m_chooser.AddObject("Robot Time - M","Robot Time - M");
+		m_chooser.AddObject("Robot Time - R","Robot Time - R");
 		frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
 
 		// Define Robot Drivetrain
@@ -303,37 +300,43 @@ public:
 			//DoNothing();
 			while(IsAutonomous());
 		}
-		else if (m_autoSelected == "Drive Fwd Only")
+		else if (m_autoSelected == "Drive Fwd - L or R")
 		{
-			if (location == 1 || location == 3)		// if we're in the sides
-			{
-				Drive(-0.5, 0, 0.9);	// tune these values so that we will always cross the line
-				while(IsAutonomous());
-			}
-			else	// if we're in the middle
-			{
-				Drive(-0.5, 0, 0.5);		// drive halfway forward
-
-				if (gameData[0] == 'L')
-				{
-					Drive(0, -0.5, 2);		// drive left
-				}
-				else
-				{
-					Drive(0, 0.5, 2);		// drive right
-				}
-
-				Drive(-0.5, 0, 0.7);		// drive the rest of the way forward
-				while(IsAutonomous());
-			}
+			Drive(-motorAutonomousSpeed, 0, 0.9);	// tune these values so that we will always cross the line
+			while(IsAutonomous());
 		}
-		else if (m_autoSelected == "Robot Time")
+		else if (m_autoSelected == "Drive Fwd - M Only")
 		{
+			Drive(-motorAutonomousSpeed, 0, 0.5);		// drive halfway forward
+
+			if (gameData[0] == 'L')
+			{
+				Drive(0, -motorAutonomousSpeed, 2);		// drive left
+			}
+			else
+			{
+				Drive(0, motorAutonomousSpeed, 2);		// drive right
+			}
+
+			Drive(-motorAutonomousSpeed, 0, 0.7);		// drive the rest of the way forward
+			while(IsAutonomous());
+		}
+		else if (m_autoSelected == "Robot Time - L" || m_autoSelected == "Robot Time - R" || m_autoSelected == "Robot Time - M")
+		{
+			if (m_autoSelected == "Robot Time - L")
+				location = 1;
+
+			if (m_autoSelected == "Robot Time - M")
+				location = 2;
+
+			if (m_autoSelected == "Robot Time - R")
+				location = 3;
+
 			//-------------------------------------------------------------------------------------------
 			// IF STARTING POSITION NOT IN THE MIDDLE
 			if (location == 1 || location == 3)
 			{
-				Drive(-0.5, 0, 0.9);	// tune these values so that we will always cross the line
+				Drive(-motorAutonomousSpeed, 0, 0.9);	// tune these values so that we will always cross the line
 				Wait(2);
 
 				if (location == 1 && gameData[0] == 'L')
@@ -352,19 +355,18 @@ public:
 			else
 			{
 
-
 				if (gameData[0] == 'L')	// go to the left
 				{
-					Drive(-0.5, 0, 0.5);	// tune these values so that we will always cross the line
-					Drive(0, -0.5, 2);		// drive left
+					Drive(-motorAutonomousSpeed, 0, 0.5);	// tune these values so that we will always cross the line
+					Drive(0, -motorAutonomousSpeed, 2);		// drive left
 				}
 				else		// go to the right
 				{
-					Drive(-0.5, 0, 0.5);		// tune these values so that we will always cross the line
-					Drive(0, 0.5, 2);		// drive right
+					Drive(-motorAutonomousSpeed, 0, 0.5);		// tune these values so that we will always cross the line
+					Drive(0, motorAutonomousSpeed, 2);		// drive right
 				}
 
-				Drive(-0.5, 0, 0.7);		// drive forward to the switch
+				Drive(-motorAutonomousSpeed, 0, 0.7);		// drive forward to the switch
 				Wait(2);
 				ReleasePowerCubeMotors(motorReleasePowerCubeSpeed);
 				Wait(1);
