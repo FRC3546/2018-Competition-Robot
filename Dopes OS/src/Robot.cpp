@@ -7,7 +7,7 @@
 
 // TEAM 3546 - Buc'N'Gears
 // (D)esign (O)riented (P)rogramming (E)nthusiast(S) (O)perating (S)ystem -> DOPES OS
-// Version 1.08
+// Version 1.09
 
 #include <iostream>
 #include <string>
@@ -302,7 +302,7 @@ public:
 		}
 		else if (m_autoSelected == "Drive Fwd - L or R")
 		{
-			Drive(-motorAutonomousSpeed, 0, 0.9);	// tune these values so that we will always cross the line
+			Drive(-motorAutonomousSpeed, 0, 1.0);	// tune these values so that we will always cross the line
 			while(IsAutonomous());
 		}
 		else if (m_autoSelected == "Drive Fwd - M Only")
@@ -336,7 +336,7 @@ public:
 			// IF STARTING POSITION NOT IN THE MIDDLE
 			if (location == 1 || location == 3)
 			{
-				Drive(-motorAutonomousSpeed, 0, 0.9);	// tune these values so that we will always cross the line
+				Drive(-motorAutonomousSpeed, 0, 1.0);	// tune these values so that we will always cross the line
 				Wait(2);
 
 				if (location == 1 && gameData[0] == 'L')
@@ -357,13 +357,13 @@ public:
 
 				if (gameData[0] == 'L')	// go to the left
 				{
-					Drive(-motorAutonomousSpeed, 0, 0.5);	// tune these values so that we will always cross the line
-					Drive(0, -motorAutonomousSpeed, 2);		// drive left
+					Drive(-motorAutonomousSpeed, 0, 0.7);	// tune these values so that we will always cross the line
+					Drive(0, -1, 1.25);		// drive left
 				}
 				else		// go to the right
 				{
 					Drive(-motorAutonomousSpeed, 0, 0.5);		// tune these values so that we will always cross the line
-					Drive(0, motorAutonomousSpeed, 2);		// drive right
+					Drive(0, motorAutonomousSpeed, 1.7);		// drive right
 				}
 
 				Drive(-motorAutonomousSpeed, 0, 0.7);		// drive forward to the switch
@@ -386,7 +386,7 @@ public:
 		FlipperClose();
 		EngagePlatform();
 		commandTimeout = 0;
-		ahrs->ZeroYaw();
+		//ahrs->ZeroYaw();
 	}
 
 	void TeleopPeriodic()
